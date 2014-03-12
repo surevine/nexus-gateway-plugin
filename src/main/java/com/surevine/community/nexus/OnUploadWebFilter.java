@@ -234,13 +234,17 @@ public class OnUploadWebFilter implements Filter {
 				entity.addPart(key, new StringBody(properties.get(key)));
 			}
 			
-			Request.Post("http://"
-						+NexusGatewayProperties.get(NexusGatewayProperties.GATEWAY_HOST)
-						+":"
-						+NexusGatewayProperties.get(NexusGatewayProperties.GATEWAY_PORT)
-						+"/"
-						+NexusGatewayProperties.get(NexusGatewayProperties.GATEWAY_CONTEXT)
-						+"/api/export")
+			final String uri = "http://"
+					+NexusGatewayProperties.get(NexusGatewayProperties.GATEWAY_HOST)
+					+":"
+					+NexusGatewayProperties.get(NexusGatewayProperties.GATEWAY_PORT)
+					+"/"
+					+NexusGatewayProperties.get(NexusGatewayProperties.GATEWAY_CONTEXT)
+					+"/api/export";
+			
+			System.out.println("POST to " +uri);
+			
+			Request.Post(uri)
 					.body(entity)
 					.execute().returnContent().asString();
 		} catch (final IOException e) {
