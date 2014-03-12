@@ -76,4 +76,13 @@
       </plugin>
     </plugins>
 	</build>
+  <scm>
+    <connection>scm:git:ssh://git@github.com/surevine/nexus-gateway-plugin.git</connection>
+  </scm>
+  <distributionManagement>
+    <repository>
+      <id>TPS</id>
+      <url>https://nexus.surevine.net/content/repositories/TPS/</url>
+    </repository>
+  </distributionManagement>
 </project>
