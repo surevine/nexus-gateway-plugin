@@ -1,5 +1,16 @@
 package com.surevine.community.nexus;
 
+import com.google.common.base.Joiner;
+import org.apache.http.client.fluent.Request;
+import org.apache.http.entity.mime.HttpMultipartMode;
+import org.apache.http.entity.mime.MultipartEntity;
+import org.apache.http.entity.mime.content.FileBody;
+import org.apache.http.entity.mime.content.StringBody;
+import org.apache.shiro.web.servlet.ShiroFilter;
+
+import javax.inject.Singleton;
+import javax.servlet.*;
+import javax.servlet.http.HttpServletRequest;
 import java.io.File;
 import java.io.FilenameFilter;
 import java.io.IOException;
@@ -11,24 +22,6 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
-
-import javax.inject.Singleton;
-import javax.servlet.Filter;
-import javax.servlet.FilterChain;
-import javax.servlet.FilterConfig;
-import javax.servlet.ServletException;
-import javax.servlet.ServletRequest;
-import javax.servlet.ServletResponse;
-import javax.servlet.http.HttpServletRequest;
-
-import org.apache.http.client.fluent.Request;
-import org.apache.http.entity.mime.HttpMultipartMode;
-import org.apache.http.entity.mime.MultipartEntity;
-import org.apache.http.entity.mime.content.FileBody;
-import org.apache.http.entity.mime.content.StringBody;
-import org.apache.shiro.web.servlet.ShiroFilter;
-
-import com.google.common.base.Joiner;
 
 /**
  * Injected {@link ShiroFilter}.
@@ -166,38 +159,53 @@ public class OnUploadWebFilter implements Filter {
 				metadata.append("}");
 				
 				System.out.println("Metadata: " +metadata.toString());
-				
-				// Create tar.gz in temporary directory
-				final Path tmp = Paths.get("/tmp/nexus-upload", UUID.randomUUID().toString());
-				final Path tarFile = Paths.get(tmp.toString(), tmp.getFileName().toString() +".tar.gz");
-				final Path metadataPath = Paths.get(tmp.toString(), ".metadata.json");
-				final Path artifactPath = Paths.get(tmp.toString(), artifact.getFileName().toString());
-				
-				Files.createDirectories(tmp);
-				Files.copy(artifact, artifactPath);
-				Files.write(metadataPath, metadata.toString().getBytes(Charset.forName("UTF-8")));
 
-				// Tarball.
-				try {
-					Runtime.getRuntime().exec(
-							new String[] {"tar", "cvzf", tarFile.toString(),
-									metadataPath.getFileName().toString(),
-									artifactPath.getFileName().toString()},
-							new String[] {},
-							tmp.toFile()).waitFor();
-				} catch (InterruptedException e) {
-					e.printStackTrace(); // FIXME: Handle better.
-				}
-				
-				// Post to gateway
-				pushToGeneric(tmp, tmp.getFileName().toString(), properties);
-				
-				// Cleanup
-//				Files.delete(Paths.get(tmp.toString(), ".metadata.json"));
-//				Files.delete(Paths.get(tmp.toString(), artifact.getFileName().toString()));
-//				Files.delete(Paths.get(tmp.toString(), tarFile.toString()));
-//				Files.delete(tmp);
-			} catch (Exception e) {
+
+                // Create tar.gz in temporary directory
+                final Path tmp = Paths.get("/tmp/nexus-upload", UUID.randomUUID().toString());
+                final Path tarFile = Paths.get(tmp.toString(), tmp.getFileName().toString() +".tar.gz");
+                final Path metadataPath = Paths.get(tmp.toString(), ".metadata.json");
+                final Path artifactPath = Paths.get(tmp.toString(), artifact.getFileName().toString());
+
+                try {
+                    Files.createDirectories(tmp);
+
+                    // register for deletion on normal JVM termination
+
+                    artifactPath.toFile().deleteOnExit();
+                    metadataPath.toFile().deleteOnExit();
+                    tarFile.toFile().deleteOnExit();
+                    tmp.toFile().deleteOnExit();
+
+                    Files.copy(artifact, artifactPath);
+                    Files.write(metadataPath, metadata.toString().getBytes(Charset.forName("UTF-8")));
+
+                    // Tarball.
+                    try {
+                        Runtime.getRuntime().exec(
+                                new String[] {"tar", "cvzf", tarFile.toString(),
+                                        metadataPath.getFileName().toString(),
+                                        artifactPath.getFileName().toString()},
+                                new String[] {},
+                                tmp.toFile()).waitFor();
+                    } catch (InterruptedException e) {
+                        System.out.println(e.getMessage());
+                        e.printStackTrace(); // FIXME: Handle better.
+                    }
+
+                    // Post to gateway
+                    pushToGeneric(tmp, tmp.getFileName().toString(), properties);
+                } finally {
+                        // Cleanup - explicitly
+
+                        artifactPath.toFile().delete();
+                        metadataPath.toFile().delete();
+                        tarFile.toFile().delete();
+                        tmp.toFile().delete();
+                }
+
+
+            } catch (Exception e) {
 				System.out.println(e.getMessage());
 				e.printStackTrace();
 				throw new RuntimeException(e);
@@ -221,11 +229,23 @@ public class OnUploadWebFilter implements Filter {
 		
 		return false;
 	}
-	
-	private void pushToGeneric(final java.nio.file.Path quarantinePath,
+
+    /**
+     * Submits a tarball to some gateway host as defined in the NexusGatewayProperties
+     *
+     * The tarball encapsulates data such that a remote Gateway can relay the Nexus release
+     *
+     * @param path The path where the artifact is held temporarily
+     * @param projectName The name of the tarball bundle to push
+     * @param properties
+     * @return true iff the submission to the Gateway host
+     */
+	private boolean pushToGeneric(final java.nio.file.Path path,
 			final String projectName, final Map<String, String> properties) {
-		final java.nio.file.Path tarball = Paths.get(quarantinePath.toString(), projectName +".tar.gz");
-		
+		final java.nio.file.Path tarball = Paths.get(path.toString(), projectName +".tar.gz");
+
+        boolean result = false;
+
 		try {
 			final MultipartEntity entity = new MultipartEntity(HttpMultipartMode.BROWSER_COMPATIBLE);
 			entity.addPart("file", new FileBody(tarball.toFile()));
@@ -244,11 +264,16 @@ public class OnUploadWebFilter implements Filter {
 			
 			System.out.println("POST to " +uri);
 			
-			Request.Post(uri)
+			final String response = Request.Post(uri)
 					.body(entity)
 					.execute().returnContent().asString();
+
+
 		} catch (final IOException e) {
 			e.printStackTrace();
+            result = false;
 		}
+
+        return result;
 	}
 }
