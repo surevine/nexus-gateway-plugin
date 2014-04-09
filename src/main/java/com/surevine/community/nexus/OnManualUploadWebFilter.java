@@ -28,7 +28,7 @@ public class OnManualUploadWebFilter extends OnUploadWebFilter {
 		if ("POST".equals(request.getMethod()) && request.getRequestURI().equals("/nexus/service/local/artifact/maven/content")) {
 			System.out.println("Manual filtering " +request.getMethod() +" " +request.getRequestURI());
 			
-			final BufferedReader br = new InputStreamReader(request.getInputStream());
+			final BufferedReader br = new BufferedReader(new InputStreamReader(request.getInputStream()));
 			
 			Enumeration e = request.getParameterNames();
 			while(e.hasMoreElements()) {
