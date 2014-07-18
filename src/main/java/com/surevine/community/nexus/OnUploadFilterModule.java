@@ -23,7 +23,7 @@ public class OnUploadFilterModule extends AbstractModule {
 	      @Override
 	      protected void configureServlets() {
 	    	  filter("/*").through(OnManualUploadWebFilter.class);
-	    	  filter("/nexus/content/repositories/*").through(OnMavenUploadWebFilter.class);
+	    	  filter("/content/repositories/*").through(OnMavenUploadWebFilter.class);
 	    	  
 	    	  filter("/*").through(new Filter() {
 				@Override
