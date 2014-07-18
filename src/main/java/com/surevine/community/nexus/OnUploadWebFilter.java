@@ -82,6 +82,11 @@ public abstract class OnUploadWebFilter implements Filter {
 				
 				if (pomFiles.length == 0) {
 					System.out.println("Ack. No pom found. Sssh...");
+					final File[] foundFiles = artifact.getParent().toFile().listFiles();
+					System.out.println("Found "+foundFiles.length+" files in "+artifact.getParent());
+					for (int i=0; i < foundFiles.length; i++) {
+						System.out.println("    "+foundFiles[i]);
+					}
 					return; // Warning. Return statement in middle of method!
 				}
 				

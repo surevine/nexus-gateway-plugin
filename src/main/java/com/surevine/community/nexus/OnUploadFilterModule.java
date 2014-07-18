@@ -23,17 +23,17 @@ public class OnUploadFilterModule extends AbstractModule {
 	      @Override
 	      protected void configureServlets() {
 	    	  filter("/*").through(OnManualUploadWebFilter.class);
-	    	  filter("/nexus/content/respositories/*").through(OnMavenUploadWebFilter.class);
+	    	  filter("/nexus/content/repositories/*").through(OnMavenUploadWebFilter.class);
 	    	  
 	    	  filter("/*").through(new Filter() {
 				@Override
 				public void destroy() {}
 
 				@Override
-				public void doFilter(ServletRequest arg0, ServletResponse arg1,
-						FilterChain arg2) throws IOException, ServletException {
+				public void doFilter(ServletRequest arg0, ServletResponse arg1, FilterChain arg2) throws IOException, ServletException {
 					final HttpServletRequest req = (HttpServletRequest) arg0;
 					System.out.println(req.getMethod() +" " +req.getRequestURI());
+					arg2.doFilter(arg0, arg1);
 				}
 
 				@Override
