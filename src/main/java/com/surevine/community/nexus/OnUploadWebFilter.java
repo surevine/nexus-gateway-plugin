@@ -8,7 +8,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.UUID;
 
@@ -38,9 +41,10 @@ public abstract class OnUploadWebFilter implements Filter {
 	protected String[] IGNORED_EXTENSIONS = new String[] {
 			".sha1",
 			".md5",
-			".pom",
 			"maven-metadata.xml"
 	};
+	
+	protected static final Collection<Path> AWAITING_POM = Collections.synchronizedSet(new HashSet<Path>());
 
 	public abstract void doFilter(ServletRequest req, ServletResponse res,
 			FilterChain chain) throws IOException, ServletException;
@@ -87,6 +91,7 @@ public abstract class OnUploadWebFilter implements Filter {
 					for (int i=0; i < foundFiles.length; i++) {
 						System.out.println("    "+foundFiles[i]);
 					}
+					AWAITING_POM.add(artifact);
 					return; // Warning. Return statement in middle of method!
 				}
 				

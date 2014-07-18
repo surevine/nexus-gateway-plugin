@@ -8,6 +8,7 @@ import java.io.PrintStream;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
 
 import javax.inject.Singleton;
@@ -66,8 +67,20 @@ public class OnMavenUploadWebFilter extends OnUploadWebFilter {
 					sendFile(guessedArtifact);
 				}
 			} else if (!endsWithAny(path, IGNORED_EXTENSIONS)) {
-				System.out.println("Sending[2]: "+artifact);
-				sendFile(artifact);
+				if (path.endsWith(".pom")) {
+					for (Path p : AWAITING_POM) {
+						if (p.getParent().equals(artifact.getParent())) {
+							System.out.println("Matched a pom up with a waiting artifact.  Sending the waiting artifact");
+							AWAITING_POM.remove(p);
+							sendFile(p);
+							return;
+						}
+					}
+				}
+				else {
+					System.out.println("Sending[2]: "+artifact);
+					sendFile(artifact);
+				}
 			}
 		}
 	}
